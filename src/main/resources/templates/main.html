@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.springframework.org/schema/mvc">
+<head>
+    <meta charset="utf-8"/>
+    <style>
+        #textbox {
+            visibility: hidden;
+        }
+        #form-upload {
+            margin-top: 100px;
+        }
+    </style>
+    <link rel="stylesheet" th:href="@{/res/css/bootstrap.css}"/>
+</head>
+
+<body>
+
+<form id="form-upload" method="post" action="/plot" enctype="multipart/form-data">
+    <input id="textbox" type="text" name="name"/>
+			<span class="btn btn-default btn-file">
+    			<input type="file" name="file" /></span>
+    <input type="submit" value="Upload" />
+</form>
+
+</body>
+</html>

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.springframework.org/schema/mvc">
+<head>
+    <meta charset="utf-8"/>
+    <style>
+
+        * {
+            font-family: Lato;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #DEDCDC;
+            shape-rendering: crispEdges;
+            stroke-width: 2;
+        }
+
+        .y-axis path,
+        .y-axis line,
+        .x-axis path,
+        .x-axis line {
+            fill: none;
+            stroke: #DEDCDC;
+            shape-rendering: crispEdges;
+            stroke-width: 2;
+            clip-path: url(#clip);
+        }
+
+        .x.axis path {
+            display: none;
+        }
+
+        .grid-x .tick,
+        .grid-y .tick {
+            stroke: #000;
+            stroke-opacity: 0.2;
+        }
+
+        .grid-x path,
+        .grid-y path {
+            stroke-width: 0;
+        }
+
+        .area {
+            clip-path: url(#clip);
+        }
+
+        .brush .extent {
+            stroke: #fff;
+            fill-opacity: .125;
+            shape-rendering: crispEdges;
+            clip-path: url(#clip);
+        }
+
+        .zoom {
+            cursor: move;
+            fill: none;
+            pointer-events: all;
+        }
+
+        #target, #div-download {
+            margin-left: 40px;
+        }
+
+        #meta-data {
+            margin-left: 40px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #btn-meta {
+            font-family: Lato;
+            margin-left: 40px;
+            margin-top: 10px;
+        }
+
+        .label-meta-one {
+            color: #777777;
+        }
+
+        .label-meta-two {
+            color: #444444;
+        }
+
+    </style>
+    <link rel="stylesheet" th:href="@{/res/css/bootstrap.css}"/>
+    <script type="text/javascript" th:src="@{/res/js/d3/d3.js}"></script>
+    <script type="text/javascript" th:src="@{/res/js/jquery-3.1.0.js}"></script>
+
+</head>
+
+<body onload="generate()">
+<div id="meta-data">
+    <div class="well">
+        <label class="label-meta-one">Name: <label class="label-meta-two" id="label-name"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Sex: <label class="label-meta-two" id="label-sex"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Date of birth: <label class="label-meta-two" id="label-birthdate"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Hospital Patient ID: <label class="label-meta-two" id="label-hospitalId"></label></label>
+        <br/>
+        <label class="label-meta-one">Startdate: <label class="label-meta-two" id="label-startdate"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Starttime: <label class="label-meta-two" id="label-starttime"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Endtime: <label class="label-meta-two" id="label-endtime"></label></label>
+        <br/>
+        <label class="label-meta-one">Hospital administration code: <label class="label-meta-two" id="label-hospitalAdmin"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Used Equipment: <label class="label-meta-two" id="label-usedEquip"></label></label>
+        &nbsp;
+        <label class="label-meta-one">Responsible investigator/technician: <label class="label-meta-two" id="label-resInvest"></label></label>
+    </div>
+</div><br/>
+<button type="button" id="btn-meta">Show meta data</button>
+
+<div id="graph">
+    <svg id="visualisation" height="500"></svg>
+</div>
+<div id="target">
+    <button type="button" id="btn-plot">Plot selected signals</button>
+    <button type="button" id="btn-select">Select all</button>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <input type="checkbox" id="check-space" /><label for="check-space">&nbsp;Distance between signals</label><br/>
+</div>
+<div id="div-download">
+    <form id="form-download" method="get" action="/download" target="_blank">
+        <input id="input-download" type="submit" value="Download" />
+    </form>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    var screenWidth = $(window).width();
+    var edfFormat = /*[[${edfFormat}]]*/ 0;
+    var annoSignalIndex = /*[[${annoIndex}]]*/ 0;
+    var durationRecord = /*[[${durationRecord}]]*/ 0;
+    var numberOfSignals = /*[[${numberOfSignals}]]*/ 0;
+    var maxValue = /*[[${maxValue}]]*/ {};
+    var minValue = /*[[${minValue}]]*/ {};
+    var scale = /*[[${scale}]]*/ {};
+    var dataWithAnno = /*[[${signalArray}]]*/ {};
+    var labels = /*[[${labels}]]*/ {};
+    var numberOfSamples = /*[[${numberOfSamples}]]*/ {};
+    var numberOfRecords = /*[[${numberOfRecords}]]*/ {};
+    var signalBool = new Array(numberOfSignals);
+    //don't ask why
+    signalBool.fill(true);
+    signalBool.fill(false);
+    var colors = ["#FF0000", "#000080", "#FFFF00", "#2E8B57", "#A0522D", "#800080", "#FF4500", "#000080", "#C71585", "#00FF00", "#20B2AA", "#008000", "#B22222", "#FF8C00"];
+    var selectionFlag = false;
+    var distanceFlag = false;
+    var indexArray = new Array(numberOfSignals);
+    var index = 1;
+    var MARGINS = {top: 40, right: 25, bottom: 80, left: 25};
+    var MARGINS2 = {top: 430, right: 25, bottom: 20, left: 25};
+    var WIDTH = screenWidth - MARGINS.left - MARGINS.right;
+    var WIDTH2 = screenWidth - MARGINS2.left - MARGINS2.right;
+    var HEIGHT = 500 - MARGINS.top - MARGINS.bottom;
+    var HEIGHT2 = 515 - MARGINS2.top - MARGINS2.bottom;
+    var maxSeconds = /*[[${maxSeconds}]]*/ 0;
+    var annoSignals = /*[[${annoSignal}]]*/ {};
+    var averages = /*[[${averages}]]*/ {};
+    var brush_a = 0;
+    var brush_b = WIDTH;
+    //meta data
+    var patientName = /*[[${patientName}]]*/ "";
+    var sex = /*[[${sex}]]*/ "";
+    var birthdate = /*[[${birthdate}]]*/ "";
+    var hospitalId = /*[[${hospitalId}]]*/ "";
+    var startdate = /*[[${startdate}]]*/ "";
+    var starttime = /*[[${starttime}]]*/ "";
+    var endtime = /*[[${endtime}]]*/ "";
+    var hospitalAdmin = /*[[${hospitalAdmin}]]*/ "";
+    var usedEquipment = /*[[${usedEquipment}]]*/ "";
+    var resInvest = /*[[${resInvest}]]*/ "";
+
+    var data = new Array(dataWithAnno.length-1);
+    for(var i = 0; i < data.length; i++) {
+        if(i != annoSignalIndex){
+            data[i] = dataWithAnno[i];
+        }
+    }
+
+    if(edfFormat === 2){
+        var markerBool = new Array(annoSignals.length);
+    }
+
+    function deleteMarkers(){
+        for(var i = 0; i < annoSignals.length; i++) {
+            d3.select("#container"+i).remove();
+        }
+    }
+
+    function generateMarkers(secondsScale, start, end){
+        for(var i = 0; i < annoSignals.length; i++) {
+            if(annoSignals[i].onset >= start && annoSignals[i].onset <= end) {
+            var marker = vis.append("g").attr("id", "container" + i).attr("transform", "translate(" + (50+((secondsScale) * annoSignals[i].onset)) + "," + 390 + ")");
+            var index = 0;
+            if (annoSignals[i].duration === 0) {
+                marker.append("line")
+                    .attr("class", "rect")
+                    .attr("id", i)
+                    .attr("x1", 0)
+                    .attr("y1", -HEIGHT)
+                    .attr("x2", 0)
+                    .attr("y2", 10)
+                    .style("stroke-width", 2)
+                    .style("stroke", "#ff0000")
+                    .style("stroke-dasharray", "3")
+                    .style("fill", "none")
+                    .on('mouseover', function () {
+                        index = parseInt(this.id);
+                        var annoStr = "";
+                        for (var j = 0; j < annoSignals[index].annotations.length; j++) {
+                            if (j === (annoSignals[index].annotations.length - 1)) {
+                                annoStr = annoStr + annoSignals[index].annotations[j];
+                            } else {
+                                annoStr = annoStr + annoSignals[index].annotations[j] + "/";
+                            }
+                        }
+                        d3.select("#container" + index).append("text")
+                            .text(annoStr)
+                            .attr("id", "text-element" + i)
+                            .style("fill", "red")
+                            .attr("transform", "translate(" + 0 + "," + 0 + ")")
+                            .attr("id", "markertext" + index);
+                        markerBool[index] = true;
+
+                    })
+                    .on('mouseout', function() {
+                        d3.select("#markertext" + index).remove();
+                    });
+            }
+            }
+        }
+    };
+
+    function loadMetaData() {
+        $('#label-name').text(patientName);
+        $('#label-sex').text(sex);
+        $('#label-birthdate').text(birthdate);
+        $('#label-hospitalId').text(hospitalId);
+
+        $('#label-startdate').text(startdate);
+        $('#label-starttime').text(starttime);
+        $('#label-endtime').text(endtime);
+        $('#label-hospitalAdmin').text(hospitalAdmin);
+        $('#label-usedEquip').text(usedEquipment);
+        $('#label-resInvest').text(resInvest);
+    }
+
+    var generate = function() {
+        //set width of svg
+        $('#visualisation').css("width", screenWidth - MARGINS.right - MARGINS.left);
+        //set width of divs for meta data
+        $('#meta-data').css("width", screenWidth-60);
+        $('.well').css("width", screenWidth-100);
+
+        //hide meta data
+        $('#meta-data').hide();
+
+        //load meta data
+        loadMetaData();
+
+        //generate check boxes and labels for signals
+        for (i = 0; i < numberOfSignals; i++) {
+            var radioBtn = $('<input type="checkbox" class="check-class" id="ch'+i+'" />');
+            var labelBtn = $('<label for="ch'+i+'" id="label'+i+'" style="background-color:'+colors[i % colors.length]+';"><font color="#fff" size="1">'+labels[i]  +'</font></label>');
+            radioBtn.appendTo('#target');
+            labelBtn.appendTo('#target');
+            $('#target').append("&nbsp;&nbsp;");
+        }
+
+        //if file is EDF
+        if(edfFormat === 1) {
+            $('#input-download').val("Download in EDF+");
+        } else {
+            $('#input-download').val("Download in EDF");
+        }
+
+        //if file is EDF+
+        if(edfFormat === 2){
+            for(var i = 0; i < markerBool.length; i++) {
+                markerBool[i] = false;
+            }
+            generateMarkers(((screenWidth-50-30)/(maxSeconds)), 0, maxSeconds);
+        }
+    };
+
+    /*var position_x = 0;
+    var position_y = 0;
+    jQuery(function($) {
+        $(document).mousemove(function (event) {
+            position_x = event.pageX;
+            position_y = event.pageY;
+            console.log(position_x);
+            console.log(position_y);
+        })
+    });*/
+
+    $(document).ready(function() {
+        $('#btn-plot').on("click",function () {
+            for(var i = 0; i < numberOfSignals; i++) {
+                d3.select("#line" + i).remove();
+                d3.select("#line2" + i).remove();
+            }
+            indexArray = [];
+            index = 0;
+            for(var i = 0; i < numberOfSignals; i++) {
+                if (signalBool[i] === true) {
+                    indexArray[i] = index+1;
+                    index++;
+                }
+            }
+            plotting();
+            d3.select(".brush").call(brush.move, [brush_a, brush_b]);
+        });
+
+        $('#btn-select').on("click",function() {
+            if(selectionFlag) {
+                for(var i = 0; i < numberOfSignals; i++) {
+                    signalBool[i] = false;
+                    $('#ch'+i+'').prop("checked", false);
+                }
+                $(this).text('Select all');
+                selectionFlag = false;
+            } else {
+                for(var j = 0; j < numberOfSignals; j++) {
+                    $('#ch'+j+'').prop("checked", true);
+                    //if (document.getElementById('ch'+j).checked) {
+                    signalBool[j] = true;
+                    //}
+                }
+                $(this).text('Deselect all');
+                selectionFlag = true;
+            }
+        });
+
+        $('#check-space').on("click", function() {
+            if($('#check-space').is(":checked")) {
+                distanceFlag = true;
+            } else {
+                distanceFlag = false;
+            }
+
+            if(distanceFlag) {
+                vis.append("rect")
+                        .attr("class", "whiteRectSpace")
+                        .attr("width", MARGINS.left*2)
+                        .attr("height", HEIGHT+30)
+                        .style("fill", "white");
+            } else {
+                vis.select(".whiteRectSpace").remove();
+            }
+        });
+
+        $('.check-class').on("click",function () {
+            var check_id = $(this)[0].id;
+            var check_index = parseInt(check_id.substr(2,3));
+            if($('#'+check_id).is(":checked")) {
+                signalBool[check_index] = true;
+            } else {
+                signalBool[check_index] = false;
+            }
+        });
+
+        //show meta data
+        $('#btn-meta').on("click", function() {
+            if($('#meta-data').is(":visible")) {
+                $('#meta-data').hide(850);
+                $('#btn-meta').text("Show meta data");
+            } else {
+                $('#meta-data').show(850);
+                $('#btn-meta').text("Hide meta data");
+            }
+        });
+    });
+
+    var vis = d3.select("svg");
+
+    var dataMin = data[0];
+    var dataMax = data[0];
+
+    for (var i = 1; i < data.length; i++) {
+        if (data[i] < dataMin) {
+            dataMin = data[i];
+        }
+        if (data[i] > dataMax) {
+            dataMax = data[i];
+        }
+    }
+
+    var scaleMin = scale[0];
+    var scaleMax = scale[0];
+    for (var i = 1; i < scale.length; i++) {
+        if (scale[i] < scaleMin) {
+            scaleMin = scale[i];
+        }
+        if (scale[i] > scaleMin) {
+            scaleMax = scale[i];
+        }
+    }
+
+    var xScale;
+    var xScale2 = d3.scaleLinear().range([0, WIDTH2]).domain([scaleMin, scaleMax]);
+    var yScale = d3.scaleLinear().range([HEIGHT - MARGINS.top, 0]).domain([minValue, maxValue]);
+    var yScale2 = d3.scaleLinear().range([HEIGHT2, 0]).domain([minValue, maxValue]);
+
+    var domain = 0;
+    var gapsDomain = 0;
+    var secondInSamples = numberOfSamples/durationRecord;
+    var ticks = new Array();
+    var tickLabels = new Array();
+    var secondsCounter = 0;
+
+        function initXAxis(a, b) {
+            xScale = d3.scaleLinear().range([0, WIDTH]).domain([scaleMin, scaleMax]);
+
+            domain = b-a;
+            gapsDomain = parseInt(domain/40);
+            ticks = [];
+            tickLabels = [];
+
+            for(var i = 0; i < scale.length; i=i+gapsDomain) {
+                ticks.push(scale[i]);
+                secondsCounter = Math.round((scale[i]/secondInSamples)*100)/100;
+                tickLabels.push(secondsCounter);
+            }
+
+            xAxis = d3.axisBottom(xScale)
+                .tickValues(ticks)
+                .tickSize(-HEIGHT, 0, 0)
+                .tickFormat(function(d,i){return tickLabels[i]});
+        }
+
+    initXAxis(0, scale.length);
+
+    xAxis2 = d3.axisBottom(xScale2)
+            .ticks(0);
+
+    yAxis = d3.axisLeft(yScale)
+            .ticks(0);
+
+    var brush = d3.brushX()
+            .extent([[0, 0], [WIDTH, HEIGHT2]])
+            .on("end", brushed);
+
+    var zoom = d3.zoom()
+            .scaleExtent([1, Infinity])
+            .translateExtent([0,0], [WIDTH, HEIGHT])
+            .extent([[0,0], [WIDTH, HEIGHT]])
+            .on("zoom", zoomed);
+
+    var indexSignal = 0;
+    var signal_count_g = 0;
+    var lineGen = d3.line()
+                    .x(function (d, i) {
+                        return xScale(scale[i]);
+                    })
+                    .y(function (d, i) {
+                        if(distanceFlag) {
+                            return yScale((data[indexSignal][i]-averages[indexSignal]) + ((Math.abs(maxValue-minValue))/signal_count_g)*indexArray[indexSignal]);
+                        } else {
+                            return yScale(data[indexSignal][i]);
+                        }
+                    });
+
+    var plotting = function() {
+        if(edfFormat == 1) {
+            numberOfSignals = numberOfSignals - 1;
+        }
+        var signal_count = 0;
+        for(var i = 0; i < signalBool.length; i++) {
+            if(signalBool[i]) {
+                signal_count++;
+            }
+        }
+        for (var j = 0; j < numberOfSignals; j++) {
+            if (signalBool[j]) {
+                var lineGen = d3.line()
+                        .x(function (d, i) {
+                            return xScale(scale[i]);
+                        })
+                        .y(function (d, i) {
+                            if(distanceFlag) {
+                                return yScale((data[j][i]-averages[j]) + ((Math.abs(maxValue-minValue))/signal_count)*indexArray[j]);
+                            } else {
+                                return yScale(data[j][i]);
+                            }
+                        });
+
+                focus.append('path')
+                        .attr('class', 'line')
+                        .attr('d', lineGen(data[j]))
+                        .attr('stroke', colors[j % colors.length])
+                        .attr('stroke-width', 1)
+                        .attr('fill', 'none')
+                        .attr("transform", "translate(" + 5 + "," + 0 + ")")
+                        .attr('id', 'line'+j)
+                        .append('g');
+            }
+        }
+
+        for (var j = 0; j < numberOfSignals; j++) {
+            if (signalBool[j]) {
+                var lineGen2 = d3.line()
+                        .x(function (d, i) {
+                            return xScale2(scale[i]);
+                        })
+                        .y(function (d, i) {
+                            return yScale2(data[j][i]);
+                        });
+
+                context.append('path')
+                        .attr('class', 'line')
+                        .attr('d', lineGen2(data[j]))
+                        .attr('stroke', colors[j % colors.length])
+                        .attr('stroke-width', 1)
+                        .attr('fill', 'none')
+                        .attr("transform", "translate(" + 5 + "," + 0 + ")")
+                        .attr('id', 'line2'+j)
+                        .append('g');
+            }
+        }
+
+    };
+    plotting();
+
+    vis.append("defs").append("clipPath")
+            .attr("id", "clip")
+            .append("rect")
+            .attr("width", WIDTH)
+            .attr("height", HEIGHT);
+
+    var focus = vis.append("g")
+            .attr("class", "focus")
+            .attr("transform", "translate(" + MARGINS.left + "," + MARGINS.top + ")");
+
+    var context = vis.append("g")
+            .attr("class", "context")
+            .attr("transform", "translate(" + MARGINS2.left + "," + MARGINS2.top + ")");
+
+    focus.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", "translate(" + MARGINS.left + "," + (HEIGHT - MARGINS.bottom+60) + ")")
+            .call(xAxis);
+
+    vis.append("rect")
+            .attr("class", "whiteRect")
+            .attr("width", MARGINS.left*2)
+            .attr("height", HEIGHT+10)
+            .style("fill", "white");
+
+    vis.append("rect")
+        .attr("class", "whiteRect2")
+        .attr("width", MARGINS.left*2)
+        .attr("height", 10)
+        .attr("transform", "translate(" + 0 + "," + (HEIGHT+20) + ")")
+        .style("fill", "white");
+
+    focus.append("g")
+            .attr("class", "axis axis--y")
+            .attr("transform", "translate(" + (MARGINS.left) + ",0)")
+            .call(yAxis);
+
+    context.append("g")
+            .attr("class", "axis axis--x")
+            .attr("transform", "translate("+(MARGINS2.left)+"," + HEIGHT2 + ")")
+            .call(xAxis2);
+
+    context.append("g")
+            .attr("class", "brush")
+            .call(brush)
+            .call(brush.move, xScale.range());
+
+    // function for the x grid lines
+    function make_x_axis() {
+        return d3.axisBottom(xScale)
+                .tickValues(ticks)
+    }
+
+    // function for the y grid lines
+    function make_y_axis() {
+        return d3.axisLeft(yScale)
+                .tickValues([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15])
+                .ticks(numberOfRecords)
+    }
+
+    yGrid = d3.axisLeft(yScale).ticks(numberOfRecords);
+
+    // Draw the y Grid lines
+    vis.append("g")
+            .attr("class", "grid-y")
+            .attr("transform", "translate("+(MARGINS.left+20)+"," + MARGINS.top + ")")
+            .call(yGrid
+                    .tickSize(-WIDTH, 0, 0)
+                    .tickFormat(d3.format(",.2r"))
+                    .ticks(15)
+            )
+
+    vis.append("rect")
+            .attr("class", "zoom")
+            .attr("width", WIDTH)
+            .attr("height", HEIGHT)
+            .attr("transform", "translate(" + MARGINS.left + "," + MARGINS.top + ")")
+            .call(zoom)
+            .on("mousedown.zoom", null)
+            .on("touchstart.zoom", null)
+            .on("touchmove.zoom", null)
+            .on("touchend.zoom", null)
+            .on("mousewheel.zoom", null);
+
+    function shrinkArray(rate, end, start) {
+        var data1 = new Array(data.length);
+        for(var i = 0; i < data1.length; i++) {
+            data1[i] = new Array();
+            for(var j = start; j < end; j=j+rate) {
+                data1[i].push(data[i][j]);
+            }
+        }
+        return data1;
+    }
+
+    function scaleToSeconds(scaleVal) {
+        if(scaleVal === 0){
+            return 0;
+        }
+        return (scaleVal/secondInSamples);
+    }
+
+    function brushed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore brush-by-zoom
+        var s = d3.event.selection || xScale2.range();
+        xScale.domain(s.map(xScale2.invert, xScale2));
+        var limits = xScale.domain();
+        var a = parseInt(limits[0]);
+        var b = parseInt(limits[1]);
+
+        //brush extent
+        brush_a = parseFloat(d3.select('.selection').attr('x'));
+        brush_b = parseFloat(d3.select('.selection').attr('x')) + parseFloat(d3.select('.selection').attr('width'));
+
+        if(isNaN(brush_a)) {
+            brush_a = 0;
+        }
+        if(isNaN(brush_b)) {
+            brush_b = WIDTH;
+        }
+
+        var data1;
+        if ((b-a) === screenWidth) {
+            data1 = shrinkArray(1, b, a);
+        } else if((b-a) > screenWidth) {
+            data1 = shrinkArray(parseInt((b-a)/screenWidth), b, a);
+        } else {
+            data1 = data;
+        }
+        var signal_count = 0;
+        for(var i = 0; i < numberOfSignals; i++) {
+            if(signalBool[i]) {
+                signal_count++;
+            }
+        }
+        signal_count_g = signal_count;
+
+        //manipulate the line data for the zoom
+        for(var i = 0; i < numberOfSignals; i++) {
+            if(signalBool[i]) {
+                indexSignal = i;
+                focus.selectAll("#line"+i).attr("d", lineGen(data1[i]));
+            }
+        }
+        //redraw x-axis
+        initXAxis(a , b);
+        focus.select(".axis--x").call(xAxis);
+        vis.select(".zoom").call(zoom.transform, d3.zoomIdentity
+            .scale(WIDTH / (s[1] - s[0]))
+            .translate(-s[0], 0));
+
+        var a_seconds = scaleToSeconds(a);
+        var b_seconds = scaleToSeconds(b);
+        var seconds = b_seconds - a_seconds;
+
+        //redraw annotation markers
+        if(edfFormat === 2) {
+            for(var i = 0; i < annoSignals.length; i++) {
+                if(annoSignals[i].onset >= a_seconds && annoSignals[i].onset <= b_seconds) {
+                    d3.select("#container"+i).style("opacity", 1);
+                    d3.select("#container"+i).attr("transform", "translate(" + (MARGINS.left*2+(((screenWidth-MARGINS.right-MARGINS.left)/(b_seconds-a_seconds)) * (annoSignals[i].onset-a_seconds))) + "," + 390 + ")");
+                } else {
+                    d3.select("#container"+i).style("opacity", 0);
+                }
+            }
+        }
+    }
+
+    function zoomed() {
+        if (d3.event.sourceEvent && d3.event.sourceEvent.type === "brush") return; // ignore zoom-by-brush
+        var t = d3.event.transform;
+        xScale.domain(t.rescaleX(xScale2).domain());
+
+        focus.select(".axis--x").call(xAxis);
+        context.select(".brush").call(brush.move, xScale.range().map(t.invertX, t));
+        var limits = xScale.domain();
+        var a = parseInt(limits[0]);
+        var b = parseInt(limits[1]);
+
+        //manipulate the line data for the zoom
+        for(var i = 0; i < numberOfSignals; i++) {
+            if(signalBool[i]) {
+                indexSignal = i;
+                focus.selectAll("#line"+i).attr("d", lineGen(data[i]));
+            }
+        }
+
+        //redraw x-axis
+        initXAxis(a , b);
+
+        //redraw annotation markers
+        if(edfFormat === 2){
+            var a_seconds = scaleToSeconds(a);
+            var b_seconds = scaleToSeconds(b);
+
+            for(var i = 0; i < annoSignals.length; i++) {
+                if( annoSignals[i].onset >= a_seconds && annoSignals[i].onset <= b_seconds) {
+                    d3.select("#container"+i).style("opacity", 1);
+                    d3.select("#container"+i).attr("transform", "translate(" + (MARGINS.left+(((screenWidth-MARGINS.right-MARGINS.left)/(b_seconds-a_seconds)) * (annoSignals[i].onset-a_seconds))) + "," + 390 + ")");
+                } else {
+                    d3.select("#container"+i).style("opacity", 0);
+                }
+            }
+        }
+    }
+    /*]]>*/
+</script>
+
+</body>
+</html>

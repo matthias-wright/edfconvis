@@ -1,0 +1,17 @@
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/data/AbstractFile.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/AbstractFileWriter.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EdfConvisApplication.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/config/WebAppConfig.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/data/Signal.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/data/EDFPlusFile.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/data/EDFFile.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/MainController.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFReader.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/Tools.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFPlusToEDFConverter.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFPlusReader.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFPlusWriter.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFToEDFPlusConverter.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/EDFWriter.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/data/AnnotationSignal.java
+/home/mwright/Documents/intellij-workspace/edfconvisrepo/src/main/java/de/rwth_aachen/mi/convis/AbstractFileReader.java
