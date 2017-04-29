@@ -8,15 +8,12 @@ import de.rwthaachen.mi.convis.data.Signal;
  * Created by mwright on 9/28/16.
  *
  * Converts an EDF file to an EDF+ file
- *
- * Helpfulness score: **. Consider naming the class a SomethingToSomethingConverter class.
  */
 public class EDFToEDFPlusConverter {
 
     /**
      * Fills the EDF+ file with the information from the EDF file
      *
-     * Helpfulness score: ** . Kinda stating the obvious.
      * @return
      */
     public EDFPlusFile convert(EDFFile edfFile) {
