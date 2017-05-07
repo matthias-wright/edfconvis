@@ -1,4 +1,6 @@
 # edfconvis
+Developed for the Department of Medical Informatics, UKA RWTH Aachen.
+
 Web app for reading, visualizing and converting EDF and EDF+ files
 Specs: http://www.edfplus.info/
 The format is used for devices that measure Electroencephalography (EEG) data.
